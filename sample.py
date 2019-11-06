@@ -6,9 +6,8 @@ import random
 
 
 class Sample:
-    def __init__(self, args, device, encoder, decoder, training_data, val_data):
-        self.encoder = encoder
-        self.decoder = decoder
+    def __init__(self, args, device, model, training_data, val_data):
+        self.model = model
         self.device = device
         self.args = args
         self.train_input, self.train_output = training_data
@@ -30,9 +29,8 @@ class Sample:
 
         _, Train_out = torch.max(Train_out, 1)
         _, Test_out = torch.max(Test_out, 1)
-        print(self.train_input.shape, self.train_output.shape , Train_out.cpu().numpy().shape)
-        self.Save((self.train_input, self.train_output, Train_out.cpu().numpy()), "Sample/train/")
-        self.Save((self.test_input, self.test_output, Test_out.cpu().numpy()), "Sample/val/")
+        self.Save((self.train_input, self.train_output, Train_out.cpu().numpy()), "Sample/" + self.model.name+"/train/")
+        self.Save((self.test_input, self.test_output, Test_out.cpu().numpy()), "Sample" + self.model.name+"/val/")
 
     def predict(self, data_inputs):
         numofstep = int(data_inputs.shape[0] / 2)
@@ -41,8 +39,7 @@ class Sample:
             start = 2 * step
             data_input = torch.from_numpy(data_inputs[start: start + 2]).type(torch.FloatTensor).to(
                 self.device)
-            feature = self.encoder(data_input.permute(0, 3, 1, 2))
-            output = self.decoder(feature)
+            output = self.model(data_input.permute(0, 3, 1, 2))
             outputs.append(output[0])
             outputs.append(output[1])
         outputs = torch.stack(outputs, 0)

@@ -10,15 +10,15 @@ dtype_long = torch.cuda.LongTensor
 
 def load_data(array=True, val=False):
     if val:
-        path = "/home/ziad/Documents/Semantic Segmentation/CityScapes/val/"
+        path = "CityScapes/val/"
     else:
-        path = "/home/ziad/Documents/Semantic Segmentation/CityScapes/train/"
+        path = "CityScapes/train/"
 
-    numOFimage = len([f for f in os.listdir(path + "input/") if os.path.isfile(os.path.join(path + "input/", f))])
+    number_of_image = len([f for f in os.listdir(path + "input/") if os.path.isfile(os.path.join(path + "input/", f))])
     input_images = []
     output_images = []
 
-    for i in range(1, numOFimage + 1):
+    for i in range(1, number_of_image + 1):
         raw_image = Image.open(path + "input/" + str(i) + ".png")
         input_images.append(np.asarray(raw_image))
         if not array:
@@ -35,6 +35,7 @@ def load_data(array=True, val=False):
 
     input_images = np.array(input_images)
     return input_images, output_images
+
 
 def load_weights(model, path):
     model.load_state_dict(torch.load(os.path.join(path)))

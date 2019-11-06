@@ -1,12 +1,13 @@
 import torch.nn as nn
 import torchvision.models as models
 import torch, torch.nn.functional as F
+import time
 
 
 class PPM(nn.Module):
     def __init__(self):
         super(PPM, self).__init__()
-
+        self.model_name = "PSPnet" + time.localtime()
         stages = [1, 2, 3, 6]
         self.features = []
         for s in stages:

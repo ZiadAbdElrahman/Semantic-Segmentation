@@ -1,5 +1,6 @@
-import torch.nn as nn
 import torch, torch.nn.functional as F
+import torch.nn as nn
+import time
 
 
 class EcoderBlock(nn.Module):
@@ -39,31 +40,33 @@ class DecoderBlock(nn.Module):
 class UNet(nn.Module):
     def __init__(self):
         super(UNet, self).__init__()
-        self.model_name = "Unet"
+        self.name = "Unet " + time.asctime()
+        self.downsample = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.EB1 = EcoderBlock(3, 64)
-        self.EB2 = EcoderBlock(64, 128)
-        self.EB3 = EcoderBlock(128, 256)
-        self.EB4 = EcoderBlock(256, 512)
+        self.EB1 = EcoderBlock(3, 32)
+        self.EB2 = EcoderBlock(32, 64)
+        self.EB3 = EcoderBlock(64, 128)
+        self.EB4 = EcoderBlock(128, 256)
 
-        self.center = DecoderBlock(512, 512)
+        self.center = DecoderBlock(256, 256)
 
-        self.DB4 = DecoderBlock(1024, 256)
-        self.DB3 = DecoderBlock(512, 128)
-        self.DB2 = DecoderBlock(256, 64)
+        self.DB4 = DecoderBlock(512, 128)
+        self.DB3 = DecoderBlock(256, 64)
+        self.DB2 = DecoderBlock(128, 32)
         self.DB1 = nn.Sequential(
-            nn.Conv2d(128, 64, kernel_size=(3, 3), bias=False),
-            nn.BatchNorm2d(64, momentum=0.95),
+            nn.Conv2d(64, 32, kernel_size=(3, 3), bias=False),
+            nn.BatchNorm2d(32, momentum=0.95),
             nn.ReLU(inplace=True),
-            nn.Conv2d(64, 64, kernel_size=(3, 3), bias=False),
-            nn.BatchNorm2d(64, momentum=0.95),
+            nn.Conv2d(32, 32, kernel_size=(3, 3), bias=False),
+            nn.BatchNorm2d(32, momentum=0.95),
             nn.ReLU(inplace=True),
         )
 
-        self.final = nn.Conv2d(64, 29, kernel_size=1)
+        self.final = nn.Conv2d(32, 20, kernel_size=1)
 
     def forward(self, x):
-        EB1_out = self.EB1(x)
+        x_ = self.downsample(x)
+        EB1_out = self.EB1(x_)
         EB2_out = self.EB2(EB1_out)
         EB3_out = self.EB3(EB2_out)
         EB4_out = self.EB4(EB3_out)

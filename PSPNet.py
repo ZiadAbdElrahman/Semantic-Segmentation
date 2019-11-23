@@ -1,20 +1,21 @@
-import torch.nn as nn
 import torchvision.models as models
-import torch, torch.nn.functional as F
+import torch.nn.functional as F
+import torch.nn as nn
+import torch
 import time
 
 
 class PPM(nn.Module):
     def __init__(self):
         super(PPM, self).__init__()
-        self.model_name = "PSPnet" + time.localtime()
+        self.name = "PSPnet " + time.asctime()
         stages = [1, 2, 3, 6]
         self.features = []
         for s in stages:
             self.features.append(nn.Sequential(
-                nn.AdaptiveAvgPool2d(s),
-                nn.Conv2d(2048, 512, kernel_size=1, bias=False),
-                nn.BatchNorm2d(512, momentum=.95),
+                nn.AvgPool2d(s),
+                nn.Conv2d(2048, 256, kernel_size=1, bias=False),
+                nn.BatchNorm2d(256, momentum=.95),
                 nn.ReLU(inplace=True)
             ))
 
@@ -35,6 +36,8 @@ class PSPNet(nn.Module):
         super(PSPNet, self).__init__()
 
         resnet = models.resnet101(pretrained=True)
+        self.downsample = nn.MaxPool2d(kernel_size=2, stride=2)
+
         self.layer0 = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool)
         self.layer1, self.layer2, self.layer3, self.layer4 = resnet.layer1, resnet.layer2, resnet.layer3, resnet.layer4
 
@@ -52,15 +55,18 @@ class PSPNet(nn.Module):
         self.ppm = PPM()
 
         self.final = nn.Sequential(
-            nn.Conv2d(4096, 512, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(512, momentum=.95),
+            nn.Conv2d(3072, 256, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(256, momentum=.95),
             nn.ReLU(inplace=True),
             nn.Dropout(0.1),
-            nn.Conv2d(512, 29, kernel_size=1)
+            nn.Conv2d(256, 20, kernel_size=1)
         )
 
     def forward(self, image):
         imagr_size = image.size()
+
+        image = self.downsample(image)
+        image = self.downsample(image)
 
         feature = self.layer0(image)
         feature = self.layer1(feature)

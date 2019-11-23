@@ -3,6 +3,11 @@ import numpy as np
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 from util import save_weights, load_weights
+from torch.utils.data import DataLoader
+from torchvision.transforms import CenterCrop
+from torchvision import transforms
+from PIL import Image
+from label import id_to_trainId_map_func, traindId_to_color_map_func
 
 
 class Trainer:
@@ -10,14 +15,14 @@ class Trainer:
         self.args = args
         self.device = device
         self.model = model.to(device)
-        self.train_input, self.train_output = training_data
-        self.test_input, self.test_output = val_data
+        self.train_data = training_data
+        self.val_data = val_data
 
     def train(self):
         writer = SummaryWriter()
 
         if self.args.load_weight:
-            load_weights(self.model, self.args.model_path  + self.model.name)
+            load_weights(self.model, self.args.model_path)
 
         for epoch in range(self.args.num_epochs):
             params = list(self.model.parameters())
@@ -25,12 +30,12 @@ class Trainer:
             optimizer = torch.optim.Adam(params=params, lr=self.args.learning_rate)
 
             training_loss = self.step(criterion=criterion,
-                                      data=(self.train_input, self.train_output),
+                                      data=self.train_data,
                                       optimizer=optimizer)
 
             with torch.no_grad():
                 test_loss = self.step(criterion=criterion,
-                                      data=(self.test_input, self.test_output))
+                                      data=self.val_data)
 
             writer.add_scalars('loss', {'train': training_loss,
                                         'val': test_loss}, epoch + 1)
@@ -45,29 +50,32 @@ class Trainer:
             save_weights(self.model, self.args.model_path + self.model.name)
 
     def step(self, criterion, data, optimizer=None):
-        data_inputs, data_outputs = data
-        numofstep = int(data_inputs.shape[0] / self.args.batch_size)
-        total_Loss = 0
-        for step in range(numofstep):
 
-            start = self.args.batch_size * step
+        data_loader = DataLoader(data, batch_size=self.args.batch_size, shuffle=False)
+        total_loss = 0
+        step = 0
+        num_of_step = int((data_loader.__len__()) / self.args.batch_size)
 
-            data_input = torch.from_numpy(data_inputs[start: start + self.args.batch_size]).type(torch.FloatTensor).to(
-                self.device)
-            data_output = torch.from_numpy(data_outputs[start: start + self.args.batch_size]).long().to(self.device)
+        for x, y in data_loader:
+            transform = transforms.Compose([
+                id_to_trainId_map_func
+            ])
+            y = torch.from_numpy(transform(y))
 
-            outputs = self.model(data_input.permute(0, 3, 1, 2))
+            outputs = self.model(x.permute(0, 3, 1, 2).float().to(self.device))
+            loss = criterion(outputs, y.long().to(self.device))
 
-            loss = criterion(outputs, data_output)
-
-            total_Loss += (loss.item() * self.args.batch_size)
+            total_loss += (loss.item() * self.args.batch_size)
 
             if optimizer is not None:
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                if (step + 1) % 100 == 0:
-                    print('step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
-                          .format(step + 1, numofstep, loss.item(),
-                                  np.exp(loss.item())))
-        return total_Loss / (numofstep * self.args.batch_size)
+
+            if (step + 1) % 100 == 0:
+                print('step [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}'
+                      .format(step + 1, num_of_step, loss.item(),
+                              np.exp(loss.item())))
+
+            step += 1
+        return total_loss / (num_of_step * self.args.batch_size)

@@ -2,7 +2,6 @@ import os, sys
 from PIL import Image
 import numpy as np
 import torch
-from label import color2label
 
 dtype = torch.cuda.FloatTensor
 dtype_long = torch.cuda.LongTensor
@@ -43,3 +42,11 @@ def load_weights(model, path):
 
 def save_weights(model, path):
     torch.save(model.state_dict(), os.path.join(path))
+
+
+def img_to_tensor(imgs):
+    # tensor = []
+    # for img in imgs:
+    #     tensor.append(torch.tensor(np.array(img)))
+    # tensor = torch.stack(tensor)
+    return torch.tensor(np.array(imgs))

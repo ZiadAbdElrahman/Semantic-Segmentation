@@ -15,6 +15,7 @@ import numpy as np
 
 parser = argparse.ArgumentParser()
 
+
 parser.add_argument('--model_path', type=str, default='models/', help='path for saving trained models')
 parser.add_argument('--load_weight', type=bool, default=False, help='load the weights or not')
 parser.add_argument('--save_weight', type=bool, default=True, help='save the weights or not')

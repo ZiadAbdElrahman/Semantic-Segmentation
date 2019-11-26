@@ -1,12 +1,11 @@
-import torch
 import numpy as np
+import torch
 from torch import nn
-from torch.utils.tensorboard import SummaryWriter
-from util import save_weights, load_weights
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
-from label import id_to_trainId_map_func, traindId_to_color_map_func
-import torch.nn.functional as F
+from label import id_to_trainId_map_func
+from util import save_weights, load_weights
 
 
 class Trainer:
@@ -19,23 +18,23 @@ class Trainer:
         self.loss_balance = loss_balance
 
     def train(self):
-        writer = SummaryWriter()
 
         if self.args.load_weight:
-            load_weights(self.model, self.args.model_path)
+            self.model.load_weights(self.args.model_path)
 
         for epoch in range(self.args.num_epochs):
+            if epoch == 0:
+                writer = SummaryWriter()
+
             params = list(self.model.parameters())
             optimizer = torch.optim.Adam(params=params, lr=self.args.learning_rate)
 
             training_loss = self.step(data=self.train_data,
                                       optimizer=optimizer)
-
             with torch.no_grad():
                 test_loss = self.step(data=self.val_data)
 
-            writer.add_scalars('loss', {'train': training_loss,
-                                        'val': test_loss}, epoch + 1)
+            writer.add_scalars('loss ' + self.model.name + " " + str(self.args.learning_rate), {'train': training_loss, 'val': test_loss}, epoch + 1)
 
             print('Epoch [{}/{}], Loss: {:.4f}, Perplexity: {:5.4f}, TestLoss: {:.4f}, TestPerplexity: {:5.4f}'
                   .format(epoch + 1, self.args.num_epochs, training_loss,
@@ -44,7 +43,7 @@ class Trainer:
             self.args.learning_rate *= 0.995
 
         if self.args.save_weight:
-            save_weights(self.model, self.args.model_path + self.model.name)
+            self.model.save_weights()
 
     def step(self, data, optimizer=None):
 
@@ -62,8 +61,13 @@ class Trainer:
             outputs = self.model(x.permute(0, 3, 1, 2).float().to(self.device))
 
             if self.loss_balance:
+
                 weight = np.bincount(y.reshape(-1)) + 1
-                weight = np.sum(weight) / weight
+                sum_of_all = np.sum(weight)
+
+                weight = 1 - (weight / np.sum(weight))
+                weight = weight / np.sum(weight)
+
                 weight = torch.from_numpy(weight).float().to(self.device)
                 criterion = nn.CrossEntropyLoss(weight=weight)
             else:

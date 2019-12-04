@@ -1,14 +1,13 @@
-import torchvision.models as models
-import torch.nn.functional as F
-import torch.nn as nn
+import time, os
 import torch
-import time
+import torch.nn as nn
+import torch.nn.functional as F
+import torchvision.models as models
 
 
 class PPM(nn.Module):
     def __init__(self):
         super(PPM, self).__init__()
-        self.name = "PSPnet " + time.asctime()
         stages = [1, 2, 3, 6]
         self.features = []
         for s in stages:
@@ -34,6 +33,7 @@ class PPM(nn.Module):
 class PSPNet(nn.Module):
     def __init__(self):
         super(PSPNet, self).__init__()
+        self.name = time.asctime() + " PSPnet "
 
         resnet = models.resnet101(pretrained=True)
         self.downsample = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -55,14 +55,16 @@ class PSPNet(nn.Module):
         self.ppm = PPM()
 
         self.final = nn.Sequential(
-            nn.Conv2d(3072, 256, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(256, momentum=.95),
+            nn.Conv2d(3072, 512, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(512, momentum=.95),
             nn.ReLU(inplace=True),
             nn.Dropout(0.1),
-            nn.Conv2d(256, 20, kernel_size=1)
+            nn.Conv2d(512, 20, kernel_size=1)
         )
 
     def forward(self, image):
+        torch.cuda.empty_cache()
+
         imagr_size = image.size()
 
         image = self.downsample(image)
@@ -75,7 +77,15 @@ class PSPNet(nn.Module):
         feature = self.layer4(feature)
 
         feature = self.ppm(feature)
+        # feature = F.upsample(feature, imagr_size[2:], mode='bilinear')
+
         out = self.final(feature)
 
         out = F.upsample(out, imagr_size[2:], mode='bilinear')
         return out
+
+    def load_weights(self, path):
+        self.load_state_dict(torch.load(os.path.join(path)))
+
+    def save_weights(self, path=''):
+        torch.save(self.state_dict(), os.path.join('weights/' + self.name + path))

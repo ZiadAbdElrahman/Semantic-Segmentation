@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torchvision.models as models
 import torch, torch.nn.functional as F
-import time
+import time, os
 
 
 class EncoderBlock(nn.Module):
@@ -99,7 +99,6 @@ class Decoder(nn.Module):
         self.Decoder_Block5 = DecoderBlock(256, 256, 3)
 
         self.unpool = nn.MaxUnpool2d(kernel_size=2, stride=2, padding=0)
-        self.final = nn.Conv2d(32, 20, kernel_size=1, stride=1)
 
     def forward(self, x, ind1, ind2, ind3, ind4):
         x = self.Decoder_Block5(x)
@@ -116,17 +115,17 @@ class Decoder(nn.Module):
         x = self.unpool(x, ind1)
         x = self.Decoder_Block1(x)
 
-        out = self.final(x)
-
+        out = x
         return out
 
 
 class SegNet(nn.Module):
     def __init__(self):
         super(SegNet, self).__init__()
-        self.name = "SegNet " + time.asctime()
+        self.name =  time.asctime() + " SegNet "
 
         self.downsample = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.final = nn.Conv2d(32, 20, kernel_size=1, stride=1)
 
         self.encoder = Encoder()
         self.decoder = Decoder()
@@ -135,5 +134,11 @@ class SegNet(nn.Module):
         x_ = self.downsample(x)
         feature, ind1, ind2, ind3, ind4 = self.encoder(x_)
         out = self.decoder(feature, ind1, ind2, ind3, ind4)
+        out = self.final(F.upsample(out, x.size()[2:], mode='bilinear'))
+        return out
 
-        return F.upsample(out, x.size()[2:], mode='bilinear')
+    def load_weights(self, path):
+        self.load_state_dict(torch.load(os.path.join(path)))
+
+    def save_weights(self):
+        torch.save(self.state_dict(), os.path.join('weights/' + self.name))
